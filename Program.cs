@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -262,7 +263,19 @@ namespace dotnetthanks_loader
         private static async Task<IEnumerable<dotnetthanks.Release>> LoadReleasesAsync(string owner, string repo)
         {
             // load the current data
-            var currentData = JsonSerializer.Deserialize<List<dotnetthanks.Release>>(System.IO.File.ReadAllText($"{repo}.json"));
+            var currentData = new List<dotnetthanks.Release>();// JsonSerializer.Deserialize<List<dotnetthanks.Release>>(System.IO.File.ReadAllText($"{repo}.json"));
+
+            if (!File.Exists($"{repo}.json"))
+            {
+                var client = new WebClient();
+                client.Headers[HttpRequestHeader.Authorization] = $"token {_token}";
+                client.Headers[HttpRequestHeader.Accept] = "application/vnd.github.v3.raw";
+
+                // download the recent from website-resources
+                client.DownloadFile(new Uri($"https://raw.githubusercontent.com/dotnet/website-resources/main/blob-assets/json/thanks/core.json?token={_token}"), $"{repo}.json");
+            }
+
+            currentData = JsonSerializer.Deserialize<List<dotnetthanks.Release>>(System.IO.File.ReadAllText($"{repo}.json"));
 
             var results = await _ghclient.Repository.Release.GetAll(owner, repo);
 
