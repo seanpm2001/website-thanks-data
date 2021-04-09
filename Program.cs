@@ -71,6 +71,9 @@ namespace dotnetthanks_loader
             for (int i = 0; i < sortedReleases.Count - 1; i++)
             {
                 currentRelease = sortedReleases[i];
+                if (currentRelease.Contributions > 0)
+                    continue;
+
                 previousRelease = GetPreviousRelease(sortedReleases, currentRelease, i + 1);
                 if (previousRelease is null)
                 {
@@ -258,15 +261,27 @@ namespace dotnetthanks_loader
 
         private static async Task<IEnumerable<dotnetthanks.Release>> LoadReleasesAsync(string owner, string repo)
         {
+            // load the current data
+            var currentData = JsonSerializer.Deserialize<List<dotnetthanks.Release>>(System.IO.File.ReadAllText($"{repo}.json"));
+
             var results = await _ghclient.Repository.Release.GetAll(owner, repo);
 
-            return results.Select(release => new dotnetthanks.Release
+            var selected = results.Select(release => new dotnetthanks.Release
             {
                 Name = release.Name,
                 Tag = release.TagName,
                 Id = release.Id,
                 ChildRepos = ParseReleaseBody(release.Body)
             });
+
+            var ids = currentData.Select(r => r.Id).ToList();
+           
+            var filtered = selected.Where(s => !ids.Contains(s.Id));
+
+            // add the missing releases to the currentData
+            currentData.AddRange(filtered);
+
+            return currentData;
         }
 
         private static List<ChildRepo> ParseReleaseBody(string body)
